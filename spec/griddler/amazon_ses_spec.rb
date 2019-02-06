@@ -17,12 +17,17 @@ describe Griddler::AmazonS3SES::Adapter do
       sns_message[:mail][:commonHeaders][:from] = ['There <there@example.com>']
 
       allow_any_instance_of(Griddler::AmazonS3SES::Adapter).to receive(:sns_json).and_return(default_params)
+      allow(Aws::S3::Resource).to receive(:new).and_return(Aws::S3::Resource.new(stub_responses: true))
     end
 
     it_behaves_like 'Griddler adapter', :amazon_s3_ses, {}
   end
 
   describe '.normalize_params' do
+    before do
+      allow(Aws::S3::Resource).to receive(:new).and_return(Aws::S3::Resource.new(stub_responses: true))
+    end
+
     it 'parses out the "to" addresses, returning an array' do
       expect(Griddler::AmazonS3SES::Adapter.normalize_params(default_params)[:to]).to eq ['"Mr Fugushima at Fugu, Inc" <hi@example.com>', 'Foo bar <foo@example.com>']
     end
@@ -33,10 +38,6 @@ describe Griddler::AmazonS3SES::Adapter do
 
     it 'parses out the "subject", returning a string' do
       expect(Griddler::AmazonS3SES::Adapter.normalize_params(default_params)[:subject]).to eq "Test"
-    end
-
-    it 'parses out the text' do
-      expect(Griddler::AmazonS3SES::Adapter.normalize_params(default_params)[:text]).to eq "Hi\n"
     end
 
     it 'should return the text body in UTF-8' do
@@ -143,10 +144,10 @@ describe Griddler::AmazonS3SES::Adapter do
         "action": {
           "type": "SNS",
           "topicArn": "arn:aws:sns:us-west-2:000000000000:staging_replies_griddler",
-          "encoding": "BASE64"
+          "bucketName": "testBucket",
+          "objectKey": "testObjectKey"
         }
-      },
-      "content": Base64.encode64(mail_content)
+      }
     }
   }
 

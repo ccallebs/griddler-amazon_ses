@@ -1,5 +1,6 @@
 require 'mail'
 require 'net/http'
+require 'aws-sdk-s3'
 
 module Griddler
   module AmazonS3SES
@@ -76,7 +77,9 @@ module Griddler
       end
 
       def message
-        @message ||= Mail.read_from_string(Base64.decode64(email_json['content']))
+        @message ||= begin
+          Mail.read_from_string(email_s3_object.get.body.string)
+        end
       end
 
       def multipart?
@@ -88,7 +91,7 @@ module Griddler
       end
 
       def html_part
-        multipart? ? force_body_to_utf_8_string(message.html_part.body) : nil
+        multipart? ? force_body_to_utf_8_string(message.html_part.try(:body)) : nil
       end
 
       def force_body_to_utf_8_string(message_body)
@@ -132,7 +135,17 @@ module Griddler
         confirmation_endpoint = URI.parse(sns_json['SubscribeURL'])
         Net::HTTP.get confirmation_endpoint
       end
+
+      def s3
+        @s3 ||= Aws::S3::Resource.new(region: Griddler::AmazonS3SES.configuration.aws_region)
+      end
+
+      def email_s3_object
+        @email_s3_object ||=
+          s3
+          .bucket(email_json['receipt']['action']['bucketName'])
+          .object(email_json['receipt']['action']['objectKey'])
+      end
     end
   end
 end
-
